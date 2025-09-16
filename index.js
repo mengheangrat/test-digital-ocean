@@ -211,7 +211,9 @@ const setupFileWatcher = () => {
 
   watcher.on("error", (error) => {
     console.error(`❌ File watcher error:`, error);
-    console.log(`💡 Consider increasing system file watcher limits or using polling mode`);
+    console.log(
+      `💡 Consider increasing system file watcher limits or using polling mode`
+    );
   });
 
   return watcher;
@@ -378,10 +380,8 @@ const initializeAutoUpload = async () => {
   // Scan and upload existing files on startup
   await scanAndUploadAll();
 
-  // Setup file watcher for new files
-  setupFileWatcher();
-
-  console.log(`🎯 Auto-upload system ready!`);
+  // File watcher disabled - only upload on startup
+  console.log(`🎯 Auto-upload system ready! (File watcher disabled)`);
 };
 
 // Start server
