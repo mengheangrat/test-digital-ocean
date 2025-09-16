@@ -62,7 +62,7 @@ const uploadFileToSpaces = async (filePath, filename) => {
     const fileBuffer = await fs.readFile(filePath);
     const fileExtension = path.extname(filename);
     const uniqueFileName = `${crypto.randomUUID()}${fileExtension}`;
-    const key = `tmp/uploads/${uniqueFileName}`;
+    const key = `images/${uniqueFileName}`;
 
     // Upload to DigitalOcean Spaces
     const command = new PutObjectCommand({
@@ -252,7 +252,7 @@ app.post("/upload", upload.single("image"), async (req, res) => {
     // Generate unique filename
     const fileExtension = path.extname(req.file.originalname);
     const fileName = `${crypto.randomUUID()}${fileExtension}`;
-    const key = `tmp/uploads/${fileName}`;
+    const key = `images/${fileName}`;
 
     // Upload to DigitalOcean Spaces
     const command = new PutObjectCommand({
