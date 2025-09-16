@@ -121,7 +121,7 @@ const scanAndUploadAll = async () => {
     console.log(`📸 Found ${imageFiles.length} image(s) to upload`);
 
     // Upload images in batches of 100
-    const BATCH_SIZE = 100;
+    const BATCH_SIZE = 10000;
     const batches = [];
 
     // Split images into batches
