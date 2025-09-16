@@ -13,8 +13,8 @@ RUN npm ci --only=production
 # Copy application code
 COPY . .
 
-# Create uploads directory
-RUN mkdir -p /root/tmp/uploads
+# Create uploads directory with proper permissions
+RUN mkdir -p /app/uploads
 
 # Expose port
 EXPOSE 3000
@@ -26,7 +26,7 @@ ENV NODE_ENV=production
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nodejs -u 1001
 
-# Change ownership of the app directory
+# Change ownership of the app directory (including uploads)
 RUN chown -R nodejs:nodejs /app
 USER nodejs
 
