@@ -3,10 +3,15 @@ const multer = require("multer");
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const path = require("path");
 const crypto = require("crypto");
+const fs = require("fs").promises;
+const chokidar = require("chokidar");
 require("dotenv").config();
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+// Local upload directory to monitor
+const LOCAL_UPLOAD_DIR = "/tmp/uploads";
 
 // Configure DigitalOcean Spaces client
 const s3Client = new S3Client({
@@ -17,6 +22,154 @@ const s3Client = new S3Client({
     secretAccessKey: process.env.DO_SPACES_SECRET,
   },
 });
+
+// Helper function to check if file is an image
+const isImageFile = (filename) => {
+  const imageExtensions = [
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".bmp",
+    ".webp",
+    ".svg",
+  ];
+  const ext = path.extname(filename).toLowerCase();
+  return imageExtensions.includes(ext);
+};
+
+// Helper function to get MIME type from file extension
+const getMimeType = (filename) => {
+  const ext = path.extname(filename).toLowerCase();
+  const mimeTypes = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".gif": "image/gif",
+    ".bmp": "image/bmp",
+    ".webp": "image/webp",
+    ".svg": "image/svg+xml",
+  };
+  return mimeTypes[ext] || "application/octet-stream";
+};
+
+// Function to upload a single file to DigitalOcean Spaces
+const uploadFileToSpaces = async (filePath, filename) => {
+  try {
+    console.log(`📤 Uploading: ${filename}`);
+
+    // Read file from local directory
+    const fileBuffer = await fs.readFile(filePath);
+    const fileExtension = path.extname(filename);
+    const uniqueFileName = `${crypto.randomUUID()}${fileExtension}`;
+    const key = `tmp/uploads/${uniqueFileName}`;
+
+    // Upload to DigitalOcean Spaces
+    const command = new PutObjectCommand({
+      Bucket: process.env.DO_SPACES_BUCKET,
+      Key: key,
+      Body: fileBuffer,
+      ContentType: getMimeType(filename),
+      ACL: "public-read",
+    });
+
+    await s3Client.send(command);
+
+    // Generate public URL
+    const publicUrl = `https://${process.env.DO_SPACES_BUCKET}.${process.env.DO_SPACES_REGION}.digitaloceanspaces.com/${key}`;
+
+    console.log(`✅ Uploaded successfully: ${filename} -> ${publicUrl}`);
+
+    // Optional: Delete local file after successful upload
+    // await fs.unlink(filePath);
+    // console.log(`🗑️  Deleted local file: ${filename}`);
+
+    return {
+      success: true,
+      url: publicUrl,
+      originalName: filename,
+      uploadedName: uniqueFileName,
+    };
+  } catch (error) {
+    console.error(`❌ Failed to upload ${filename}:`, error.message);
+    return { success: false, error: error.message, filename };
+  }
+};
+
+// Function to scan and upload all images in the directory
+const scanAndUploadAll = async () => {
+  try {
+    console.log(`🔍 Scanning directory: ${LOCAL_UPLOAD_DIR}`);
+
+    // Create directory if it doesn't exist
+    try {
+      await fs.access(LOCAL_UPLOAD_DIR);
+    } catch {
+      await fs.mkdir(LOCAL_UPLOAD_DIR, { recursive: true });
+      console.log(`📁 Created directory: ${LOCAL_UPLOAD_DIR}`);
+    }
+
+    // Read all files in the directory
+    const files = await fs.readdir(LOCAL_UPLOAD_DIR);
+    const imageFiles = files.filter(isImageFile);
+
+    if (imageFiles.length === 0) {
+      console.log(`📂 No image files found in ${LOCAL_UPLOAD_DIR}`);
+      return;
+    }
+
+    console.log(`📸 Found ${imageFiles.length} image(s) to upload`);
+
+    // Upload all images
+    const uploadPromises = imageFiles.map((filename) => {
+      const filePath = path.join(LOCAL_UPLOAD_DIR, filename);
+      return uploadFileToSpaces(filePath, filename);
+    });
+
+    const results = await Promise.all(uploadPromises);
+    const successful = results.filter((r) => r.success).length;
+    const failed = results.filter((r) => !r.success).length;
+
+    console.log(
+      `🎉 Upload complete: ${successful} successful, ${failed} failed`
+    );
+    return results;
+  } catch (error) {
+    console.error(`❌ Error scanning directory:`, error.message);
+  }
+};
+
+// Function to setup file watcher for automatic uploads
+const setupFileWatcher = () => {
+  console.log(`👀 Setting up file watcher for: ${LOCAL_UPLOAD_DIR}`);
+
+  const watcher = chokidar.watch(LOCAL_UPLOAD_DIR, {
+    ignored: /^\./, // ignore dotfiles
+    persistent: true,
+    ignoreInitial: true, // don't trigger for existing files
+  });
+
+  watcher.on("add", async (filePath) => {
+    const filename = path.basename(filePath);
+    if (isImageFile(filename)) {
+      console.log(`🆕 New image detected: ${filename}`);
+      // Wait a moment to ensure file is fully written
+      setTimeout(async () => {
+        await uploadFileToSpaces(filePath, filename);
+      }, 1000);
+    }
+  });
+
+  watcher.on("ready", () => {
+    console.log(`✅ File watcher ready and monitoring: ${LOCAL_UPLOAD_DIR}`);
+  });
+
+  watcher.on("error", (error) => {
+    console.error(`❌ File watcher error:`, error);
+  });
+
+  return watcher;
+};
 
 // Configure multer for memory storage
 const storage = multer.memoryStorage();
@@ -94,10 +247,45 @@ app.get("/health", (req, res) => {
   res.json({ status: "OK", service: "DigitalOcean Spaces Image Upload" });
 });
 
+// API endpoint to manually trigger scan and upload
+app.post("/scan-upload", async (req, res) => {
+  try {
+    const results = await scanAndUploadAll();
+    res.json({
+      success: true,
+      message: "Scan and upload completed",
+      results,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: "Failed to scan and upload",
+      details: error.message,
+    });
+  }
+});
+
+// Initialize auto-upload functionality
+const initializeAutoUpload = async () => {
+  console.log(`🚀 Initializing auto-upload system...`);
+
+  // Scan and upload existing files on startup
+  await scanAndUploadAll();
+
+  // Setup file watcher for new files
+  setupFileWatcher();
+
+  console.log(`🎯 Auto-upload system ready!`);
+};
+
 // Start server
-app.listen(port, () => {
+app.listen(port, async () => {
   console.log(`Server running on port ${port}`);
   console.log(`Upload form available at http://localhost:${port}`);
+  console.log(`Manual scan endpoint: http://localhost:${port}/scan-upload`);
+
+  // Initialize auto-upload after server starts
+  await initializeAutoUpload();
 });
 
 module.exports = app;
