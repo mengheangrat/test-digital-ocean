@@ -8,6 +8,7 @@
     "dev": "nodemon index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "docker:build": "docker build -t digital-ocean-upload .",
+    "docker:build-force": "docker build --no-cache -t digital-ocean-upload .",
     "docker:run": "docker run -p 3000:3000 --env-file .env digital-ocean-upload"
   },
   "keywords": [
