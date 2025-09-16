@@ -13,7 +13,7 @@ RUN npm ci --only=production
 # Copy application code
 COPY . .
 
-# Create uploads directory with proper permissions
+# Create uploads directory
 RUN mkdir -p /root/tmp/uploads
 
 # Expose port
@@ -22,13 +22,6 @@ EXPOSE 3000
 # Set environment to production
 ENV NODE_ENV=production
 
-# Create non-root user for security
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nodejs -u 1001
-
-# Change ownership of the app directory (including uploads)
-RUN chown -R nodejs:nodejs /app
-USER nodejs
-
+# Run as root to access /root/tmp/uploads
 # Start the application
 CMD ["npm", "start"]
