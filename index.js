@@ -60,9 +60,8 @@ const uploadFileToSpaces = async (filePath, filename) => {
 
     // Read file from local directory
     const fileBuffer = await fs.readFile(filePath);
-    const fileExtension = path.extname(filename);
-    const uniqueFileName = `${crypto.randomUUID()}${fileExtension}`;
-    const key = `image/${uniqueFileName}`;
+    // Use original filename instead of generating UUID
+    const key = `images/${filename}`;
 
     // Upload to DigitalOcean Spaces
     const command = new PutObjectCommand({
@@ -88,7 +87,7 @@ const uploadFileToSpaces = async (filePath, filename) => {
       success: true,
       url: publicUrl,
       originalName: filename,
-      uploadedName: uniqueFileName,
+      uploadedName: filename,
     };
   } catch (error) {
     console.error(`❌ Failed to upload ${filename}:`, error.message);
@@ -249,9 +248,8 @@ app.post("/upload", upload.single("image"), async (req, res) => {
       return res.status(400).json({ error: "No file uploaded" });
     }
 
-    // Generate unique filename
-    const fileExtension = path.extname(req.file.originalname);
-    const fileName = `${crypto.randomUUID()}${fileExtension}`;
+    // Use original filename instead of generating UUID
+    const fileName = req.file.originalname;
     const key = `images/${fileName}`;
 
     // Upload to DigitalOcean Spaces
