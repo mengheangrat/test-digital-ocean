@@ -10,7 +10,7 @@ COPY package*.json ./
 RUN npm install
 
 # Create uploads directory
-RUN mkdir -p /app/uploads
+RUN mkdir -p /root/tmp/uploads
 
 # Expose port
 EXPOSE 3000

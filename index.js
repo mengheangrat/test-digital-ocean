@@ -11,7 +11,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // Local upload directory to monitor
-const LOCAL_UPLOAD_DIR = "/app/uploads";
+const LOCAL_UPLOAD_DIR = "/root/tmp/uploads";
 
 // Configure DigitalOcean Spaces client
 const s3Client = new S3Client({

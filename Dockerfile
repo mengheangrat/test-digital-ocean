@@ -14,7 +14,7 @@ RUN npm ci --only=production
 COPY . .
 
 # Create uploads directory with proper permissions
-RUN mkdir -p /app/uploads
+RUN mkdir -p /root/tmp/uploads
 
 # Expose port
 EXPOSE 3000
