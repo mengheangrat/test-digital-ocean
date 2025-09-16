@@ -187,6 +187,11 @@ const setupFileWatcher = () => {
     ignored: /^\./, // ignore dotfiles
     persistent: true,
     ignoreInitial: true, // don't trigger for existing files
+    usePolling: true, // Use polling instead of native events (less resource intensive)
+    interval: 5000, // Poll every 5 seconds
+    binaryInterval: 10000, // Poll binary files every 10 seconds
+    depth: 1, // Only watch immediate files, not subdirectories
+    atomic: true, // Wait for write operations to complete
   });
 
   watcher.on("add", async (filePath) => {
@@ -196,7 +201,7 @@ const setupFileWatcher = () => {
       // Wait a moment to ensure file is fully written
       setTimeout(async () => {
         await uploadFileToSpaces(filePath, filename);
-      }, 1000);
+      }, 2000); // Increased delay to 2 seconds
     }
   });
 
@@ -206,6 +211,7 @@ const setupFileWatcher = () => {
 
   watcher.on("error", (error) => {
     console.error(`❌ File watcher error:`, error);
+    console.log(`💡 Consider increasing system file watcher limits or using polling mode`);
   });
 
   return watcher;
