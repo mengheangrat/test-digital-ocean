@@ -16,7 +16,7 @@ services:
       # Mount for development (uncomment for dev mode)
       # - .:/app
       # - /app/node_modules
-      - ./uploads:/root/tmp/uploads
+      - /root/tmp/uploads:/root/tmp/uploads
     restart: unless-stopped
     networks:
       - app-network
@@ -36,7 +36,10 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
-      - ./uploads:/root/tmp/uploads
+      -     volumes:
+      - .:/app
+      - /app/node_modules
+      - /root/tmp/uploads:/root/tmp/uploads
     restart: unless-stopped
     networks:
       - app-network
