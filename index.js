@@ -120,20 +120,61 @@ const scanAndUploadAll = async () => {
 
     console.log(`📸 Found ${imageFiles.length} image(s) to upload`);
 
-    // Upload all images
-    const uploadPromises = imageFiles.map((filename) => {
-      const filePath = path.join(LOCAL_UPLOAD_DIR, filename);
-      return uploadFileToSpaces(filePath, filename);
-    });
+    // Upload images in batches of 100
+    const BATCH_SIZE = 100;
+    const batches = [];
 
-    const results = await Promise.all(uploadPromises);
-    const successful = results.filter((r) => r.success).length;
-    const failed = results.filter((r) => !r.success).length;
+    // Split images into batches
+    for (let i = 0; i < imageFiles.length; i += BATCH_SIZE) {
+      batches.push(imageFiles.slice(i, i + BATCH_SIZE));
+    }
 
     console.log(
-      `🎉 Upload complete: ${successful} successful, ${failed} failed`
+      `📦 Processing ${batches.length} batch(es) of ${BATCH_SIZE} images each`
     );
-    return results;
+
+    let allResults = [];
+    let totalSuccessful = 0;
+    let totalFailed = 0;
+
+    // Process each batch sequentially
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+      const batch = batches[batchIndex];
+      const batchNumber = batchIndex + 1;
+
+      console.log(
+        `🚀 Processing batch ${batchNumber}/${batches.length} (${batch.length} images)...`
+      );
+
+      // Upload all images in current batch in parallel
+      const uploadPromises = batch.map((filename) => {
+        const filePath = path.join(LOCAL_UPLOAD_DIR, filename);
+        return uploadFileToSpaces(filePath, filename);
+      });
+
+      const batchResults = await Promise.all(uploadPromises);
+      const batchSuccessful = batchResults.filter((r) => r.success).length;
+      const batchFailed = batchResults.filter((r) => !r.success).length;
+
+      totalSuccessful += batchSuccessful;
+      totalFailed += batchFailed;
+      allResults = allResults.concat(batchResults);
+
+      console.log(
+        `✅ Batch ${batchNumber} complete: ${batchSuccessful} successful, ${batchFailed} failed`
+      );
+
+      // Small delay between batches to be respectful to the API
+      if (batchIndex < batches.length - 1) {
+        console.log(`⏳ Waiting 2 seconds before next batch...`);
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
+    }
+
+    console.log(
+      `🎉 All uploads complete: ${totalSuccessful} successful, ${totalFailed} failed (${imageFiles.length} total)`
+    );
+    return allResults;
   } catch (error) {
     console.error(`❌ Error scanning directory:`, error.message);
   }
