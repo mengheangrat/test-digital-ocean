@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DigitalOcean Spaces Image Upload</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .upload-area {
+            border: 2px dashed #ddd;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            margin: 20px 0;
+            transition: border-color 0.3s;
+        }
+        .upload-area.dragover {
+            border-color: #007bff;
+            background-color: #f8f9fa;
+        }
+        .file-input {
+            display: none;
+        }
+        .upload-btn {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .upload-btn:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .preview {
+            max-width: 100%;
+            max-height: 300px;
+            margin-top: 10px;
+            border-radius: 5px;
+        }
+        .url-result {
+            margin-top: 10px;
+            word-break: break-all;
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>DigitalOcean Spaces Image Upload</h1>
+        <p>Upload images to your DigitalOcean Space. Supported formats: JPG, PNG, GIF, WebP</p>
+        
+        <div class="upload-area" id="uploadArea">
+            <p>Drag and drop an image here or click to select</p>
+            <input type="file" id="fileInput" class="file-input" accept="image/*">
+            <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                Choose Image
+            </button>
+        </div>
+        
+        <div id="selectedFile" style="display: none;">
+            <h3>Selected File:</h3>
+            <p id="fileName"></p>
+            <button class="upload-btn" onclick="uploadFile()">Upload to DigitalOcean Spaces</button>
+        </div>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const selectedFileDiv = document.getElementById('selectedFile');
+        const fileNameP = document.getElementById('fileName');
+        const resultDiv = document.getElementById('result');
+        
+        let selectedFile = null;
+
+        // Drag and drop functionality
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelection(files[0]);
+            }
+        });
+
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelection(e.target.files[0]);
+            }
+        });
+
+        function handleFileSelection(file) {
+            if (!file.type.startsWith('image/')) {
+                showResult('Please select an image file.', 'error');
+                return;
+            }
+
+            selectedFile = file;
+            fileNameP.textContent = file.name;
+            selectedFileDiv.style.display = 'block';
+            resultDiv.innerHTML = '';
+        }
+
+        async function uploadFile() {
+            if (!selectedFile) {
+                showResult('Please select a file first.', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('image', selectedFile);
+
+            try {
+                showResult('Uploading...', 'success');
+                
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showResult(
+                        `Upload successful! <br>
+                        <div class="url-result">
+                            <strong>Public URL:</strong><br>
+                            <a href="${result.url}" target="_blank">${result.url}</a>
+                        </div>
+                        <img src="${result.url}" class="preview" alt="Uploaded image">`,
+                        'success'
+                    );
+                } else {
+                    showResult(`Upload failed: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showResult(`Upload failed: ${error.message}`, 'error');
+            }
+        }
+
+        function showResult(message, type) {
+            resultDiv.innerHTML = `<div class="${type}">${message}</div>`;
+        }
+    </script>
+</body>
+</html>
