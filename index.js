@@ -61,7 +61,7 @@ const uploadFileToSpaces = async (filePath, filename) => {
     // Read file from local directory
     const fileBuffer = await fs.readFile(filePath);
     // Use original filename instead of generating UUID
-    const key = `images/${filename}`;
+    const key = `image/${filename}`;
 
     // Upload to DigitalOcean Spaces
     const command = new PutObjectCommand({
@@ -250,7 +250,7 @@ app.post("/upload", upload.single("image"), async (req, res) => {
 
     // Use original filename instead of generating UUID
     const fileName = req.file.originalname;
-    const key = `images/${fileName}`;
+    const key = `image/${fileName}`;
 
     // Upload to DigitalOcean Spaces
     const command = new PutObjectCommand({
