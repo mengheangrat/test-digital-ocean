@@ -247,6 +247,67 @@ app.get("/health", (req, res) => {
   res.json({ status: "OK", service: "DigitalOcean Spaces Image Upload" });
 });
 
+// Test endpoint to upload just 1 image to validate credentials
+app.post("/test-upload", async (req, res) => {
+  try {
+    console.log(`🧪 Testing single image upload...`);
+
+    // Create directory if it doesn't exist
+    try {
+      await fs.access(LOCAL_UPLOAD_DIR);
+    } catch {
+      return res.status(404).json({
+        error: "Upload directory not found",
+        path: LOCAL_UPLOAD_DIR,
+      });
+    }
+
+    // Read all files in the directory
+    const files = await fs.readdir(LOCAL_UPLOAD_DIR);
+    const imageFiles = files.filter(isImageFile);
+
+    if (imageFiles.length === 0) {
+      return res.status(404).json({
+        error: "No image files found",
+        path: LOCAL_UPLOAD_DIR,
+      });
+    }
+
+    // Take just the first image for testing
+    const testFile = imageFiles[0];
+    const filePath = path.join(LOCAL_UPLOAD_DIR, testFile);
+
+    console.log(`🎯 Testing upload with: ${testFile}`);
+
+    // Upload single test file
+    const result = await uploadFileToSpaces(filePath, testFile);
+
+    if (result.success) {
+      res.json({
+        success: true,
+        message: "✅ Test upload successful! Credentials are working.",
+        testFile: testFile,
+        uploadedUrl: result.url,
+        totalImagesFound: imageFiles.length,
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: "❌ Test upload failed",
+        details: result.error,
+        testFile: testFile,
+      });
+    }
+  } catch (error) {
+    console.error(`❌ Test upload error:`, error);
+    res.status(500).json({
+      success: false,
+      error: "Test upload failed",
+      details: error.message,
+    });
+  }
+});
+
 // API endpoint to manually trigger scan and upload
 app.post("/scan-upload", async (req, res) => {
   try {
